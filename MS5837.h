@@ -7,6 +7,8 @@ read data from the Measurement Specialties MS5837-30BA pressure/temperature
 sensor.
 Authors: Rustom Jehangir, Blue Robotics Inc.
          Adam Šimko, Blue Robotics Inc.
+         
+         Seth Opgenorth, MSOE Underwater Robotics
 -------------------------------
 The MIT License (MIT)
 Copyright (c) 2015 Blue Robotics Inc.
@@ -49,13 +51,18 @@ public:
 	 */
 	void setFluidDensity(float density);
         
-        /** The slow read from I2C takes about 40 ms and has 0.20mBar resolution
+        /** The slow read from I2C block and takes about 40 ms and has 0.20mBar resolution
 	 */
 	void readSlow();
         
-	/** The fast read from I2C takes about 5 ms and has 0.54mBar resolution
+	/** The fast read from I2C blocks and takes about 5 ms and has 0.54mBar resolution
 	 */
 	void readFast();
+        
+        /** The fast read from I2C does not block, but takes about 5 ms to update the reading
+         * and has 0.54mBar resolution.
+	 */
+        void readFastPoll();
 
 	/** This function loads the datasheet test case values to verify that
 	 *  calculations are working correctly. No example checksum is provided
@@ -87,6 +94,11 @@ private:
 	int32_t P;
 
 	float fluidDensity;
+        
+        /** Timing and state machine variables for reading sensor in a polling mode
+         */
+        unsigned long startMicros;  
+        readPollState readPollCurState;
 
 	/** Performs calculations per the sensor data sheet for conversion and
 	 *  second order compensation.

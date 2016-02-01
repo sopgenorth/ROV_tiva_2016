@@ -13,8 +13,20 @@
 #define MS5837_CONVERT_D2_1024          0x54
 #define MS5837_CONVERT_DELAY_US_1024    2300
 
+
+//enum for managing readFastPoll state machine
+enum readPollState{
+  start,
+  d1Delay,
+  d1ReadD2request,
+  d2Delay,
+  d2Read
+};
+
 MS5837::MS5837() {
   fluidDensity = 997;
+  //initialize read state machine variable
+  readPollCurState = start;
 }
 
 void MS5837::init(int module) {
@@ -92,6 +104,69 @@ void MS5837::readSlow() {
   D2 = (D2 << 8) | Wire.read();
 
   calculate();
+}
+
+void MS5837::readFastPoll() {  
+  switch (readPollCurState){
+   case start:
+    // Request D1 conversion
+    Wire.beginTransmission(MS5837_ADDR);
+    Wire.write(MS5837_CONVERT_D1_1024);
+    Wire.endTransmission();
+    startMicros = micros();
+    readPollCurState = d1Delay;
+    break;
+    
+   case d1Delay:
+    if((micros() - startMicros) > MS5837_CONVERT_DELAY_US_1024) {
+      readPollCurState = d1ReadD2request;
+    }
+    break;
+    
+   case d1ReadD2request:
+    Wire.beginTransmission(MS5837_ADDR);
+    Wire.write(MS5837_ADC_READ);
+    Wire.endTransmission();
+
+    Wire.requestFrom(MS5837_ADDR,3);
+    D1 = 0;
+    D1 = Wire.read();
+    D1 = (D1 << 8) | Wire.read();
+    D1 = (D1 << 8) | Wire.read();
+
+    // Request D2 conversion
+    Wire.beginTransmission(MS5837_ADDR);
+    Wire.write(MS5837_CONVERT_D2_1024);
+    Wire.endTransmission();
+    startMicros = micros();
+    readPollCurState = d2Delay;
+    break;
+    
+   case d2Delay:
+    if((micros() - startMicros) > MS5837_CONVERT_DELAY_US_1024) {
+      readPollCurState = d2Read;
+    }
+    break;
+    
+   case d2Read:
+    Wire.beginTransmission(MS5837_ADDR);
+    Wire.write(MS5837_ADC_READ);
+    Wire.endTransmission();
+
+    Wire.requestFrom(MS5837_ADDR,3);
+    D2 = 0;
+    D2 = Wire.read();
+    D2 = (D2 << 8) | Wire.read();
+    D2 = (D2 << 8) | Wire.read();
+    calculate();
+    readPollCurState = start; 
+    break;
+    
+   default:
+    readPollCurState = start;
+    break; 
+    
+  }
 }
 
 void MS5837::readFast() {
