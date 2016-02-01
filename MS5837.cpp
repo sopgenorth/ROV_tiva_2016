@@ -56,7 +56,7 @@ void MS5837::setFluidDensity(float density) {
   fluidDensity = density;
 }
 
-void MS5837::readPressureSlow() {
+void MS5837::readSlow() {
   // Request D1 conversion
   Wire.beginTransmission(MS5837_ADDR);
   Wire.write(MS5837_CONVERT_D1_8192);
@@ -76,7 +76,7 @@ void MS5837::readPressureSlow() {
   
   // Request D2 conversion
   Wire.beginTransmission(MS5837_ADDR);
-  Wire.write(MS5837_CONVERT_D2_1024);
+  Wire.write(MS5837_CONVERT_D2_8192);
   Wire.endTransmission();
 
   delay(20); // Max conversion time per datasheet
@@ -94,7 +94,7 @@ void MS5837::readPressureSlow() {
   calculate();
 }
 
-void MS5837::readPressureFast() {
+void MS5837::readFast() {
   // Request D1 conversion
   Wire.beginTransmission(MS5837_ADDR);
   Wire.write(MS5837_CONVERT_D1_1024);

@@ -51,11 +51,11 @@ public:
         
         /** The slow read from I2C takes about 40 ms and has 0.20mBar resolution
 	 */
-	void readPressureSlow();
+	void readSlow();
         
 	/** The fast read from I2C takes about 5 ms and has 0.54mBar resolution
 	 */
-	void readPressureFast();
+	void readFast();
 
 	/** This function loads the datasheet test case values to verify that
 	 *  calculations are working correctly. No example checksum is provided
