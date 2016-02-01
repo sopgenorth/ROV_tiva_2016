@@ -69,9 +69,9 @@ public:
 	void readFast();
         
         /** The fast read from I2C does not block, but takes about 5 ms to update the reading
-         * and has 0.54mBar resolution.
+         * and has 0.54mBar resolution. Returns true if a new depth reading is available.
 	 */
-        void readFastPoll();
+        boolean readFastPoll();
 
 	/** This function loads the datasheet test case values to verify that
 	 *  calculations are working correctly. No example checksum is provided

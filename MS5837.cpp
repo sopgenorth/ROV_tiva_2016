@@ -96,7 +96,8 @@ void MS5837::readSlow() {
   calculate();
 }
 
-void MS5837::readFastPoll() {  
+boolean MS5837::readFastPoll() {  
+  boolean newValue = false;
   switch (readPollCurState){
    case start:
     // Request D1 conversion
@@ -149,14 +150,15 @@ void MS5837::readFastPoll() {
     D2 = (D2 << 8) | Wire.read();
     D2 = (D2 << 8) | Wire.read();
     calculate();
+    newValue = true;
     readPollCurState = start; 
     break;
     
    default:
     readPollCurState = start;
     break; 
-    
   }
+  return newValue;
 }
 
 void MS5837::readFast() {
