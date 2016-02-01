@@ -36,6 +36,15 @@ THE SOFTWARE.
 
 #include "Energia.h"
 
+//enum for managing readFastPoll state machine
+enum readPollState{
+  start,
+  d1Delay,
+  d1ReadD2request,
+  d2Delay,
+  d2Read
+};
+
 class MS5837 {
 public:
 	static const float Pa = 100.0f;

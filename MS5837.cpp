@@ -13,16 +13,6 @@
 #define MS5837_CONVERT_D2_1024          0x54
 #define MS5837_CONVERT_DELAY_US_1024    2300
 
-
-//enum for managing readFastPoll state machine
-enum readPollState{
-  start,
-  d1Delay,
-  d1ReadD2request,
-  d2Delay,
-  d2Read
-};
-
 MS5837::MS5837() {
   fluidDensity = 997;
   //initialize read state machine variable
