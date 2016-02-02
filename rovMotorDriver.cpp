@@ -13,6 +13,10 @@ unsigned char getCRC(unsigned char message[], unsigned char length);
 unsigned char getCRCForByte(unsigned char val);
 void buildCRCTable();
 
+/*
+ * Begin serial ports, built CRC table and send safe start command 
+ * to the motor controllers. 
+ */
 void setupMotorDriver(int uartRate)
 {
   //ROV uses all 8 hardware UARTs for motor control
@@ -63,42 +67,10 @@ void setupMotorDriver(int uartRate)
   stopAllMotors(); 
 }
 
-
-unsigned char getCRCForByte(unsigned char val)
-{
-  unsigned char j;
-
-  for (j = 0; j < 8; j++)
-  {
-    if (val & 1)
-      val ^= CRC7_POLY;
-    val >>= 1;
-  }
-
-  return val;
-}
-
-void buildCRCTable()
-{
-  int i;
-
-  // fill an array with CRC values of all 256 possible bytes
-  for (i = 0; i < 256; i++)
-  {
-    CRCTable[i] = getCRCForByte(i);
-  }
-}
-
-unsigned char getCRC(unsigned char message[], unsigned char length)
-{
-  unsigned char i, crc = 0;
-
-  for (i = 0; i < length; i++)
-    crc = CRCTable[crc ^ message[i]];
-  return crc;
-}
-
-
+/*
+ * Updates the speed of a chosen motor. Value should be in the 
+ * range -3200 to 3200, and will be clipped if it exceeds. 
+ */
 void setMotorSpeed(int serialPort, int16_t motorvalue)
 {
   unsigned char buf[4];
@@ -162,6 +134,9 @@ void setMotorSpeed(int serialPort, int16_t motorvalue)
   }
 }
 
+/*
+ * Brings all motors to an immediate stop.
+ */
 void stopAllMotors()
 {
   for(int i = 0; i <  TOTAL_THRUSTERS; i++){
@@ -187,5 +162,39 @@ void updateAllMotors(boolean overRideTimer){
       motorValues++; 
     }
   }
+}
+
+unsigned char getCRCForByte(unsigned char val)
+{
+  unsigned char j;
+
+  for (j = 0; j < 8; j++)
+  {
+    if (val & 1)
+      val ^= CRC7_POLY;
+    val >>= 1;
+  }
+
+  return val;
+}
+
+void buildCRCTable()
+{
+  int i;
+
+  // fill an array with CRC values of all 256 possible bytes
+  for (i = 0; i < 256; i++)
+  {
+    CRCTable[i] = getCRCForByte(i);
+  }
+}
+
+unsigned char getCRC(unsigned char message[], unsigned char length)
+{
+  unsigned char i, crc = 0;
+
+  for (i = 0; i < length; i++)
+    crc = CRCTable[crc ^ message[i]];
+  return crc;
 }
 
