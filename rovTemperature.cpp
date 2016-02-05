@@ -7,7 +7,7 @@ OneWire  ds(10);  // on pin 10 (a 4.7K resistor is necessary)
 enum tempStates_t{
   startConversion,
   need250msDelay,
-  need1sDelay,
+  needLongDelay,
   tempRead
 };
 
@@ -56,7 +56,7 @@ boolean rovTemperatureRun(){
     ds.reset();
     ds.select(addr);
     ds.write(0x44, 1);        // start conversion, with parasite power on at the end
-    tempState = need1sDelay;
+    tempState = needLongDelay;
     startMillis = millis();
     break;
 
@@ -66,8 +66,8 @@ boolean rovTemperatureRun(){
     }
     break;
 
-  case need1sDelay:
-    if((millis() - startMillis) > 1000) {
+  case needLongDelay:
+    if((millis() - startMillis) > 800) {
       tempState = tempRead;
     }
     break;
@@ -75,6 +75,7 @@ boolean rovTemperatureRun(){
   case tempRead:
     present = ds.reset();
     ds.select(addr);    
+    ds.select(addr); 
     ds.write(0xBE);         // Read Scratchpad
 
     for ( i = 0; i < 9; i++) {           // we need 9 bytes
