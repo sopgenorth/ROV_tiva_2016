@@ -39,12 +39,12 @@ PID::PID(double* Input, double* Output, double* Setpoint,
  *   pid Output needs to be computed.  returns true when the output is computed,
  *   false when nothing has been done.
  **********************************************************************************/ 
-bool PID::Compute()
+bool PID::Compute(bool forceCompute)
 {
    if(!inAuto) return false;
    unsigned long now = millis();
    unsigned long timeChange = (now - lastTime);
-   if(timeChange>=SampleTime)
+   if(forceCompute || (timeChange>=SampleTime))
    {
       /*Compute all the working error variables*/
 	  double input = *myInput;
