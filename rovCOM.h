@@ -14,7 +14,7 @@ struct inNames_t{
 #define OUT_NUM 3
 //data to send to PC
 struct outNames_t{
-  int32_t depth_microBar, rovTempCelsius, o3;
+  int32_t depth_microBar, rovTempMilliCelsius, o3;
 };
 
 extern inNames_t inGroup;

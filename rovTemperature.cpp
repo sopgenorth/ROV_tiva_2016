@@ -101,8 +101,8 @@ boolean rovTemperatureRun(){
       else if (cfg == 0x40) raw = raw & ~1; // 11 bit res, 375 ms
       //// default is 12 bit resolution, 750 ms conversion time
     }
-    rovTempCelsius = (float)raw / 16.0;
-    outGroup.rovTempCelsius = rovTempCelsius;
+    //rovTempCelsius = (float)raw / 16.0;
+    outGroup.rovTempMilliCelsius = (raw*1000)/16;
     tempState = startConversion;
     return true;
     break;
