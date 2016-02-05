@@ -1,5 +1,6 @@
 #include "MS5837.h"
 #include <Wire.h>
+#include "rovCOM.h"
 
 #define MS5837_ADDR                     0x76  
 #define MS5837_RESET                    0x1E
@@ -259,6 +260,9 @@ void MS5837::calculate() {
 
   TEMP = (TEMP-Ti);
   P = (((D1*SENS2)/2097152l-OFF2)/8192l);
+  
+  //update depth in communication packet
+  outGroup.depth_microBar = pressure(1000.0);
 }
 
 float MS5837::pressure(float conversion) {
