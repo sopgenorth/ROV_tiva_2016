@@ -5,6 +5,7 @@
 #include "rovCOM.h"
 #include "rovMotorDriver.h"
 #include "rovPID.h"
+#include "rovTemperature.h"
 
 /*
  * ROV intialization. 
@@ -16,9 +17,6 @@ void setup() {
 
   //initialize motor driver lib and set UART rate
   setupMotorDriver(500000);
-  
-  //start PID control
-  rovPIDinit();
 }
 
 /*
@@ -30,10 +28,11 @@ void loop(){
 
   //updates motor values if new sync data is available or if more than 50ms have passed
   updateAllMotors(newSyncData);
-  
-  //update PID loops
-  rovPIDrun();
+
+  //run the temperature poll
+  rovTemperatureRun();
 }
+
 
 
 
