@@ -74,7 +74,6 @@ boolean rovTemperatureRun(){
 
   case tempRead:
     present = ds.reset();
-    ds.select(addr);    
     ds.select(addr); 
     ds.write(0xBE);         // Read Scratchpad
 
