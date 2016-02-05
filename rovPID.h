@@ -3,9 +3,12 @@
 
 #include "Energia.h"
 
+extern double depthSetpoint, depthOutput;
+
 void rovPIDinit();
 
-void rovPIDrun();
+boolean rovPIDrun();
 
-
+void rovPIDsetMode(int mode);
+  
 #endif
