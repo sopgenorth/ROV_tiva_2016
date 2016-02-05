@@ -1,9 +1,11 @@
 #include "rovMotorDriver.h"
 #include "rovCOM.h"
+#include "rovPID.h"
 
 #define m_DIR PK_5
 #define m_PWM PF_0
 
+const int thrusterNumbers[8] = {fl_xy, fl_z, fr_xy, fr_z, br_xy, br_z, bl_xy, bl_z}; 
 
 const unsigned char CRC7_POLY = 0x91;
 unsigned char CRCTable[256];
@@ -43,7 +45,7 @@ void setupMotorDriver(int uartRate)
   Serial2.write(message, sizeof(message));
   Serial3.write(message, sizeof(message));
   Serial4.write(message, sizeof(message));
-  Serial5.write(message, sizeof(message));
+ // Serial5.write(message, sizeof(message));
   Serial6.write(message, sizeof(message));
   Serial7.write(message, sizeof(message));
 
@@ -55,7 +57,7 @@ void setupMotorDriver(int uartRate)
   Serial2.write(message, sizeof(message));
   Serial3.write(message, sizeof(message));
   Serial4.write(message, sizeof(message));
-  Serial5.write(message, sizeof(message));
+  //Serial5.write(message, sizeof(message));
   Serial6.write(message, sizeof(message));
   Serial7.write(message, sizeof(message));
 
@@ -65,6 +67,7 @@ void setupMotorDriver(int uartRate)
 
   //bring all motors to a stop
   stopAllMotors(); 
+  //rovPIDinit();
 }
 
 /*
@@ -117,11 +120,11 @@ void setMotorSpeed(int serialPort, int16_t motorvalue)
     //motorvalue has already been stripped of its sign
     //this is the only way to know dir here
     if (buf[0] == 0x86){
-      digitalWrite(m_DIR, LOW);
+      digitalWrite(m_DIR, HIGH);
       analogWrite(m_PWM, map(motorvalue, 0, 3200, 0, 255));
     }
     else {
-      digitalWrite(m_DIR, HIGH);
+      digitalWrite(m_DIR, LOW);
       analogWrite(m_PWM, map(motorvalue, 0, 3200, 0, 255));
     }
     break;
@@ -152,16 +155,26 @@ void stopAllMotors()
 void updateAllMotors(boolean overRideTimer){
   unsigned long currentMillis = millis();
   static unsigned long previousMillis;
+  
   if(overRideTimer || (currentMillis - previousMillis > 50)) {
     previousMillis = currentMillis;
     
     //update motor values using received data
     int * motorValues = (int*)&inGroup;
     for(int i = 0; i < TOTAL_THRUSTERS; i++){
-      setMotorSpeed(i, *motorValues);
+      setMotorSpeed(thrusterNumbers[i], *motorValues);
       motorValues++; 
     }
   }
+  
+  //integrate z thrust data and update depthSetpoint
+  
+  //call the PID run function and update z thrustrs if necessary
+  boolean updatedPID = rovPIDrun();
+  if(updatedPID){
+     //update 4 Z thrusters
+  }
+  
 }
 
 unsigned char getCRCForByte(unsigned char val)
