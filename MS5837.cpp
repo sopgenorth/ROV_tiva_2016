@@ -1,46 +1,53 @@
 #include "MS5837.h"
-#include <Wire.h>
+//#include <Wire.h>
+#include "I2CMaster.h"
 #include "rovCOM.h"
 
-#define MS5837_ADDR                     0x76  
-#define MS5837_RESET                    0x1E
-#define MS5837_ADC_READ                 0x00
-#define MS5837_PROM_READ                0xA0
-#define MS5837_CONVERT_D1_8192          0x4A
-#define MS5837_CONVERT_D2_8192          0x5A
-#define MS5837_CONVERT_DELAY_MS_8192    20
+#define MS5837_ADDR               0xEC  
+#define MS5837_RESET              0x1E
+#define MS5837_ADC_READ           0x00
+#define MS5837_PROM_READ          0xA0
+#define MS5837_CONVERT_D1_8192    0x44
+#define MS5837_CONVERT_D2_8192    0x54
 
-#define MS5837_CONVERT_D1_1024          0x44
-#define MS5837_CONVERT_D2_1024          0x54
-#define MS5837_CONVERT_DELAY_US_1024    2300
+#define SCL_PIN PK_3
+#define SDA_PIN PK_2
+
+SoftI2cMaster rtc(SDA_PIN, SCL_PIN);
+
+
 
 MS5837::MS5837() {
-  fluidDensity = 997;
-  //initialize read state machine variable
-  readPollCurState = start;
+  fluidDensity = 1029;
 }
 
-void MS5837::init(int module) {
-  //start Wire
-  Wire.setModule(module);
-  Wire.begin();
-
+void MS5837::init() {
   // Reset the MS5837, per datasheet
-  Wire.beginTransmission(MS5837_ADDR);
-  Wire.write(MS5837_RESET);
-  Wire.endTransmission();
+  delayMicroseconds(5);
+  rtc.start(MS5837_ADDR | I2C_WRITE);
+
+  delayMicroseconds(5);
+  rtc.write(MS5837_RESET);
+  delayMicroseconds(5);
+  //Serial.println(Wire.endTransmission());
+  rtc.stop();
+  
+  Serial.println("reset done");
 
   // Wait for reset to complete
   delay(10);
 
   // Read calibration values and CRC
   for ( uint8_t i = 0 ; i < 8 ; i++ ) {
-    Wire.beginTransmission(MS5837_ADDR);
-    Wire.write(MS5837_PROM_READ+i*2);
-    Wire.endTransmission();
+    rtc.start(MS5837_ADDR | I2C_WRITE);
+    rtc.write(MS5837_PROM_READ+i*2);
+    rtc.stop();
 
-    Wire.requestFrom(MS5837_ADDR,2);
-    C[i] = (Wire.read() << 8) | Wire.read();
+    rtc.start(MS5837_ADDR | I2C_READ);
+    byte b1 = rtc.read(false);
+    byte b2 = rtc.read(true);
+    rtc.stop();
+    C[i] = (b1 << 8) | b2;
   }
 
   // Verify that data is correct with CRC
@@ -53,149 +60,53 @@ void MS5837::init(int module) {
   else {
     // Failure - try again?
   }
+  
+  //attempt a first read to get a pressure basis
+  read();
+  prevPressure = P;
+  
+  depthSampleCounter = 0;
 }
 
 void MS5837::setFluidDensity(float density) {
   fluidDensity = density;
 }
 
-void MS5837::readSlow() {
+void MS5837::read() {  
   // Request D1 conversion
-  Wire.beginTransmission(MS5837_ADDR);
-  Wire.write(MS5837_CONVERT_D1_8192);
-  Wire.endTransmission();
+  rtc.start(MS5837_ADDR | I2C_WRITE);
+  rtc.write(MS5837_CONVERT_D1_8192);
+  rtc.stop();
 
-  delay(20); // Max conversion time per datasheet
+  delayMicroseconds(2280); // Max conversion time per datasheet
 
-  Wire.beginTransmission(MS5837_ADDR);
-  Wire.write(MS5837_ADC_READ);
-  Wire.endTransmission();
-
-  Wire.requestFrom(MS5837_ADDR,3);
-  D1 = 0;
-  D1 = Wire.read();
-  D1 = (D1 << 8) | Wire.read();
-  D1 = (D1 << 8) | Wire.read();
+  rtc.start(MS5837_ADDR | I2C_WRITE);
+  rtc.write(MS5837_ADC_READ);
+  rtc.stop();
   
-  // Request D2 conversion
-  Wire.beginTransmission(MS5837_ADDR);
-  Wire.write(MS5837_CONVERT_D2_8192);
-  Wire.endTransmission();
-
-  delay(20); // Max conversion time per datasheet
-
-  Wire.beginTransmission(MS5837_ADDR);
-  Wire.write(MS5837_ADC_READ);
-  Wire.endTransmission();
-
-  Wire.requestFrom(MS5837_ADDR,3);
-  D2 = 0;
-  D2 = Wire.read();
-  D2 = (D2 << 8) | Wire.read();
-  D2 = (D2 << 8) | Wire.read();
-
-  calculate();
-}
-
-boolean MS5837::readFastPoll() {  
-  boolean newValue = false;
-  switch (readPollCurState){
-   case start:
-    // Request D1 conversion
-    Wire.beginTransmission(MS5837_ADDR);
-    Wire.write(MS5837_CONVERT_D1_1024);
-    Wire.endTransmission();
-    startMicros = micros();
-    readPollCurState = d1Delay;
-    break;
-    
-   case d1Delay:
-    if((micros() - startMicros) > MS5837_CONVERT_DELAY_US_1024) {
-      readPollCurState = d1ReadD2request;
-    }
-    break;
-    
-   case d1ReadD2request:
-    Wire.beginTransmission(MS5837_ADDR);
-    Wire.write(MS5837_ADC_READ);
-    Wire.endTransmission();
-
-    Wire.requestFrom(MS5837_ADDR,3);
-    D1 = 0;
-    D1 = Wire.read();
-    D1 = (D1 << 8) | Wire.read();
-    D1 = (D1 << 8) | Wire.read();
-
-    // Request D2 conversion
-    Wire.beginTransmission(MS5837_ADDR);
-    Wire.write(MS5837_CONVERT_D2_1024);
-    Wire.endTransmission();
-    startMicros = micros();
-    readPollCurState = d2Delay;
-    break;
-    
-   case d2Delay:
-    if((micros() - startMicros) > MS5837_CONVERT_DELAY_US_1024) {
-      readPollCurState = d2Read;
-    }
-    break;
-    
-   case d2Read:
-    Wire.beginTransmission(MS5837_ADDR);
-    Wire.write(MS5837_ADC_READ);
-    Wire.endTransmission();
-
-    Wire.requestFrom(MS5837_ADDR,3);
-    D2 = 0;
-    D2 = Wire.read();
-    D2 = (D2 << 8) | Wire.read();
-    D2 = (D2 << 8) | Wire.read();
-    calculate();
-    newValue = true;
-    readPollCurState = start; 
-    break;
-    
-   default:
-    readPollCurState = start;
-    break; 
-  }
-  return newValue;
-}
-
-void MS5837::readFast() {
-  // Request D1 conversion
-  Wire.beginTransmission(MS5837_ADDR);
-  Wire.write(MS5837_CONVERT_D1_1024);
-  Wire.endTransmission();
-
-  delayMicroseconds(MS5837_CONVERT_DELAY_US_1024); // Max conversion time per datasheet
-
-  Wire.beginTransmission(MS5837_ADDR);
-  Wire.write(MS5837_ADC_READ);
-  Wire.endTransmission();
-
-  Wire.requestFrom(MS5837_ADDR,3);
+  rtc.start(MS5837_ADDR | I2C_READ);
   D1 = 0;
-  D1 = Wire.read();
-  D1 = (D1 << 8) | Wire.read();
-  D1 = (D1 << 8) | Wire.read();
+  D1 = rtc.read(false);
+  D1 = (D1 << 8) | rtc.read(false);
+  D1 = (D1 << 8) | rtc.read(true);
+  rtc.stop();
 
   // Request D2 conversion
-  Wire.beginTransmission(MS5837_ADDR);
-  Wire.write(MS5837_CONVERT_D2_1024);
-  Wire.endTransmission();
+  rtc.start(MS5837_ADDR | I2C_WRITE);
+  rtc.write(MS5837_CONVERT_D2_8192);
+  rtc.stop();
+  delayMicroseconds(2280);
 
-  delayMicroseconds(MS5837_CONVERT_DELAY_US_1024); // Max conversion time per datasheet
+  rtc.start(MS5837_ADDR | I2C_WRITE);
+  rtc.write(MS5837_ADC_READ);
+  rtc.stop();
 
-  Wire.beginTransmission(MS5837_ADDR);
-  Wire.write(MS5837_ADC_READ);
-  Wire.endTransmission();
-
-  Wire.requestFrom(MS5837_ADDR,3);
+  rtc.start(MS5837_ADDR | I2C_READ);
   D2 = 0;
-  D2 = Wire.read();
-  D2 = (D2 << 8) | Wire.read();
-  D2 = (D2 << 8) | Wire.read();
+  D2 = rtc.read(false);
+  D2 = (D2 << 8) | rtc.read(false);
+  D2 = (D2 << 8) | rtc.read(true);
+  rtc.stop();
 
   calculate();
 }
@@ -237,7 +148,7 @@ void MS5837::calculate() {
 
   //Temp and P conversion
   TEMP = 2000l+int64_t(dT)*C[6]/8388608LL;
-  P = (D1*SENS/(2097152l)-OFF)/(8192l);
+  P = (D1*SENS/(2097152l)-OFF)/(32768l);
 
   //Second order compensation
   if((TEMP/100)<20){         //Low temp
@@ -259,14 +170,15 @@ void MS5837::calculate() {
   SENS2 = SENS-SENSi;
 
   TEMP = (TEMP-Ti);
-  P = (((D1*SENS2)/2097152l-OFF2)/8192l);
-  
-  //update depth in communication packet
-  outGroup.depth_microBar = pressure(1000.0);
+  P = (((D1*SENS2)/2097152l-OFF2)/32768l);
 }
 
 float MS5837::pressure(float conversion) {
-  return P/10.0f*conversion;
+  //apply an exponential weighted moving average filter to remove sensor jitter
+  prevPressure = (3*prevPressure)/4 + (1*P/10.0f)/4; 
+  //update data to send over ethernet
+  outGroup.depth_microBar = (int32_t) (prevPressure * 1000.0f);
+  return prevPressure*conversion;
 }
 
 float MS5837::temperature() {
@@ -309,6 +221,4 @@ uint8_t MS5837::crc4(uint16_t n_prom[]) {
 
   return n_rem ^ 0x00;
 }
-
-
 

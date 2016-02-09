@@ -4,6 +4,7 @@
 #include "Energia.h"
 
 extern double depthSetpoint, depthOutput;
+extern int32_t zThrusters;
 
 void rovPIDinit();
 

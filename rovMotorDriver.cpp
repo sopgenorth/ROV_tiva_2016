@@ -67,7 +67,7 @@ void setupMotorDriver(int uartRate)
 
   //bring all motors to a stop
   stopAllMotors(); 
-  //rovPIDinit();
+  rovPIDinit();
 }
 
 /*
@@ -161,7 +161,7 @@ void updateAllMotors(boolean overRideTimer){
     
     //update motor values using received data
     int * motorValues = (int*)&inGroup;
-    for(int i = 0; i < TOTAL_THRUSTERS; i++){
+    for(int i = 0; i < TOTAL_THRUSTERS; i+=2){
       setMotorSpeed(thrusterNumbers[i], *motorValues);
       motorValues++; 
     }
@@ -173,6 +173,10 @@ void updateAllMotors(boolean overRideTimer){
   boolean updatedPID = rovPIDrun();
   if(updatedPID){
      //update 4 Z thrusters
+     for(int i = 1; i < TOTAL_THRUSTERS; i+=2){
+      setMotorSpeed(thrusterNumbers[i], zThrusters);
+    }
+    outGroup.PID_output = zThrusters;
   }
   
 }

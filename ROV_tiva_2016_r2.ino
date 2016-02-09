@@ -1,11 +1,17 @@
+
 #include <SPI.h>
 #include <Ethernet.h>
 #include <EthernetUdp.h>
 #include <Wire.h>
+
 #include "rovCOM.h"
 #include "rovMotorDriver.h"
 #include "rovPID.h"
 #include "rovTemperature.h"
+#include "MS5837.h"
+
+MS5837 sensor;
+
 
 /*
  * ROV intialization. 
@@ -25,7 +31,7 @@ void setup() {
 void loop(){
   //reads a packet if available. 
   boolean newSyncData = updateSync();
-
+  
   //updates motor values if new sync data is available or if more than 50ms have passed
   updateAllMotors(newSyncData);
 

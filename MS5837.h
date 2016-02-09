@@ -2,24 +2,29 @@
 ------------------------------------------------------------
  
 Title: Blue Robotics Arduino MS5837-30BA Pressure/Temperature Sensor Library
+
 Description: This library provides utilities to communicate with and to
 read data from the Measurement Specialties MS5837-30BA pressure/temperature 
 sensor.
+
 Authors: Rustom Jehangir, Blue Robotics Inc.
          Adam Šimko, Blue Robotics Inc.
-         
-         Seth Opgenorth, MSOE Underwater Robotics
+
 -------------------------------
 The MIT License (MIT)
+
 Copyright (c) 2015 Blue Robotics Inc.
+
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
 to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
+
 The above copyright notice and this permission notice shall be included in
 all copies or substantial portions of the Software.
+
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -32,46 +37,26 @@ THE SOFTWARE.
 #ifndef MS5837_H_BLUEROBOTICS
 #define MS5837_H_BLUEROBOTICS
 
-#define MS5837_SERIAL_PRINT 0
-
-#include "Energia.h"
-
-//enum for managing readFastPoll state machine
-enum readPollState{
-  start,
-  d1Delay,
-  d1ReadD2request,
-  d2Delay,
-  d2Read
-};
+#include "Arduino.h"
 
 class MS5837 {
 public:
-	static const float Pa = 100.0f;
-	static const float bar = 0.001f;
-	static const float mbar = 1.0f;
+	float Pa = 100.0f;
+	float bar = 0.001f;
+	float mbar = 1.0f;
 
 	MS5837();
 
-	void init(int module);
+	void init();
 
 	/** Provide the density of the working fluid in kg/m^3. Default is for 
 	 * seawater. Should be 997 for freshwater.
 	 */
 	void setFluidDensity(float density);
-        
-        /** The slow read from I2C block and takes about 40 ms and has 0.20mBar resolution
+
+	/** The read from I2C takes up for 40 ms, so use sparingly is possible.
 	 */
-	void readSlow();
-        
-	/** The fast read from I2C blocks and takes about 5 ms and has 0.54mBar resolution
-	 */
-	void readFast();
-        
-        /** The fast read from I2C does not block, but takes about 5 ms to update the reading
-         * and has 0.54mBar resolution. Returns true if a new depth reading is available.
-	 */
-        boolean readFastPoll();
+	void read();
 
 	/** This function loads the datasheet test case values to verify that
 	 *  calculations are working correctly. No example checksum is provided
@@ -100,14 +85,10 @@ private:
 	uint16_t C[8];
 	uint32_t D1, D2;
 	int32_t TEMP;
-	int32_t P;
-
-	float fluidDensity;
+	float P;
         
-        /** Timing and state machine variables for reading sensor in a polling mode
-         */
-        unsigned long startMicros;  
-        readPollState readPollCurState;
+        float prevPressure;
+	float fluidDensity;
 
 	/** Performs calculations per the sensor data sheet for conversion and
 	 *  second order compensation.

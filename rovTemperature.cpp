@@ -2,7 +2,7 @@
 #include "rovCOM.h"
 #include "OneWire.h"
 
-OneWire  ds(10);  // on pin 10 (a 4.7K resistor is necessary)
+OneWire  ds(PM_4);  // on pin 10 (a 4.7K resistor is necessary)
 
 enum tempStates_t{
   startConversion,
@@ -21,10 +21,13 @@ byte data[12];
 byte addr[8];
 float rovTempCelsius;
 unsigned long startMillis = 0;
+float celsius;
 
 boolean rovTemperatureRun(){
+  //Serial.println("hey it's here");
   switch(tempState){
   case startConversion:
+    //Serial.println("startConversion");
     present = 0;
     if ( !ds.search(addr)) {
       ds.reset_search();
@@ -62,17 +65,20 @@ boolean rovTemperatureRun(){
 
   case need250msDelay:
     if((millis() - startMillis) > 250) {
+     //Serial.println("250ms");
       tempState = startConversion;
     }
     break;
 
   case needLongDelay:
     if((millis() - startMillis) > 800) {
+      //Serial.println("800ms");
       tempState = tempRead;
     }
     break;
 
   case tempRead:
+    //Serial.println("read");
     present = ds.reset();
     ds.select(addr); 
     ds.write(0xBE);         // Read Scratchpad
@@ -101,7 +107,9 @@ boolean rovTemperatureRun(){
       else if (cfg == 0x40) raw = raw & ~1; // 11 bit res, 375 ms
       //// default is 12 bit resolution, 750 ms conversion time
     }
-    //rovTempCelsius = (float)raw / 16.0;
+    rovTempCelsius = (float)raw / 16.0;
+ //   celsius = (float)raw / 16.0;
+  //  Serial.println(celsius);
     outGroup.rovTempMilliCelsius = (raw*1000)/16;
     tempState = startConversion;
     return true;

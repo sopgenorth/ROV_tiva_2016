@@ -57,6 +57,9 @@ void setupSync(byte mac[], IPAddress ip, int updateRate_ms, int localPort){
   // start the Ethernet and UDP:
   Ethernet.begin(mac,ip);
   Udp.begin(LOCAL_PORT);
+  
+  Ethernet.enableActivityLed();
+  Ethernet.enableLinkLed();
 
 # if(DEBUG)
     Serial.begin(115200);
