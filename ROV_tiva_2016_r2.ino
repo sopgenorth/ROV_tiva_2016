@@ -29,6 +29,7 @@ void setup() {
  * Main loop that is called continuously. 
  */
 void loop(){
+  unsigned long startTime = micros();
   //reads a packet if available. 
   boolean newSyncData = updateSync();
   
@@ -37,6 +38,8 @@ void loop(){
 
   //run the temperature poll
   rovTemperatureRun();
+  
+  outGroup.rovCycleTime_us = (int32_t) (micros()-startTime);
 }
 
 
