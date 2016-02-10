@@ -87,6 +87,8 @@ private:
 	int32_t TEMP;
 	float P;
         
+        int32_t depthFilter;
+        int32_t depthSampleCounter;
         float prevPressure;
 	float fluidDensity;
 

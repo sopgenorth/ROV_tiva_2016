@@ -7,8 +7,45 @@
 #define MS5837_RESET              0x1E
 #define MS5837_ADC_READ           0x00
 #define MS5837_PROM_READ          0xA0
-#define MS5837_CONVERT_D1_8192    0x44
-#define MS5837_CONVERT_D2_8192    0x54
+#define MS5837_CONVERT_D1         0x46
+#define MS5837_CONVERT_D2         0x56
+
+#if (MS5837_CONVERT_D1 == 0x40)
+# define MS5837_CONVERT_DELAY_D1 600
+#elif (MS5837_CONVERT_D1 == 0x42)
+# define MS5837_CONVERT_DELAY_D1 1170
+#elif (MS5837_CONVERT_D1 == 0x44)
+# define MS5837_CONVERT_DELAY_D1 2280
+#elif (MS5837_CONVERT_D1 == 0x46)
+# define MS5837_CONVERT_DELAY_D1 4540
+#elif (MS5837_CONVERT_D1 == 0x48)
+# define MS5837_CONVERT_DELAY_D1 9040
+#else
+# error "Invalid MS5837_CONVERT_D1 value"
+#endif
+
+#if (MS5837_CONVERT_D2 == 0x50)
+# define MS5837_CONVERT_DELAY_D2 600
+#elif (MS5837_CONVERT_D2 == 0x52)
+# define MS5837_CONVERT_DELAY_D2 1170
+#elif (MS5837_CONVERT_D2 == 0x54)
+# define MS5837_CONVERT_DELAY_D2 2280
+#elif (MS5837_CONVERT_D2 == 0x56)
+# define MS5837_CONVERT_DELAY_D2 4540
+#elif (MS5837_CONVERT_D2 == 0x58)
+# define MS5837_CONVERT_DELAY_D2 9040
+#else
+# error "Invalid MS5837_CONVERT_2 value"
+#endif
+
+
+/*
+ * It probably isn't important to read the temperature
+ * from the depth sensor every time since temperature should 
+ * change relatively slowly. This sets how many pressure reads
+ * are between temperature readings. 
+ */
+#define TEMP_READ_RATE 50  
 
 #define SCL_PIN PK_3
 #define SDA_PIN PK_2
@@ -62,52 +99,61 @@ void MS5837::init() {
   }
   
   //attempt a first read to get a pressure basis
-  read();
+  depthSampleCounter = TEMP_READ_RATE; //forces first read to read the temperature
+  read(); //this will read the current temperature
+  read(); //this will read the current pressure
   prevPressure = P;
   
-  depthSampleCounter = 0;
+  
 }
 
 void MS5837::setFluidDensity(float density) {
   fluidDensity = density;
 }
 
-void MS5837::read() {  
-  // Request D1 conversion
-  rtc.start(MS5837_ADDR | I2C_WRITE);
-  rtc.write(MS5837_CONVERT_D1_8192);
-  rtc.stop();
-
-  delayMicroseconds(2280); // Max conversion time per datasheet
-
-  rtc.start(MS5837_ADDR | I2C_WRITE);
-  rtc.write(MS5837_ADC_READ);
-  rtc.stop();
+void MS5837::read() {    
+  if(depthSampleCounter < TEMP_READ_RATE){ //read the pressure
+    depthSampleCounter++;
   
-  rtc.start(MS5837_ADDR | I2C_READ);
-  D1 = 0;
-  D1 = rtc.read(false);
-  D1 = (D1 << 8) | rtc.read(false);
-  D1 = (D1 << 8) | rtc.read(true);
-  rtc.stop();
-
-  // Request D2 conversion
-  rtc.start(MS5837_ADDR | I2C_WRITE);
-  rtc.write(MS5837_CONVERT_D2_8192);
-  rtc.stop();
-  delayMicroseconds(2280);
-
-  rtc.start(MS5837_ADDR | I2C_WRITE);
-  rtc.write(MS5837_ADC_READ);
-  rtc.stop();
-
-  rtc.start(MS5837_ADDR | I2C_READ);
-  D2 = 0;
-  D2 = rtc.read(false);
-  D2 = (D2 << 8) | rtc.read(false);
-  D2 = (D2 << 8) | rtc.read(true);
-  rtc.stop();
-
+    // Request D1 conversion
+    rtc.start(MS5837_ADDR | I2C_WRITE);
+    rtc.write(MS5837_CONVERT_D1);
+    rtc.stop();
+  
+    delayMicroseconds(MS5837_CONVERT_DELAY_D1); // Max conversion time per datasheet
+  
+    rtc.start(MS5837_ADDR | I2C_WRITE);
+    rtc.write(MS5837_ADC_READ);
+    rtc.stop();
+    
+    rtc.start(MS5837_ADDR | I2C_READ);
+    D1 = 0;
+    D1 = rtc.read(false);
+    D1 = (D1 << 8) | rtc.read(false);
+    D1 = (D1 << 8) | rtc.read(true);
+    rtc.stop();
+  }
+  else { //read the temperature every TEMP_READ_RATE depth readings
+    depthSampleCounter = 0;
+  
+    // Request D2 conversion
+    rtc.start(MS5837_ADDR | I2C_WRITE);
+    rtc.write(MS5837_CONVERT_D2);
+    rtc.stop();
+    delayMicroseconds(MS5837_CONVERT_DELAY_D2);
+  
+    rtc.start(MS5837_ADDR | I2C_WRITE);
+    rtc.write(MS5837_ADC_READ);
+    rtc.stop();
+  
+    rtc.start(MS5837_ADDR | I2C_READ);
+    D2 = 0;
+    D2 = rtc.read(false);
+    D2 = (D2 << 8) | rtc.read(false);
+    D2 = (D2 << 8) | rtc.read(true);
+    rtc.stop();
+    
+  }
   calculate();
 }
 
@@ -174,10 +220,15 @@ void MS5837::calculate() {
 }
 
 float MS5837::pressure(float conversion) {
+  depthFilter = inGroup.depthFilter;
+  
+  float filterN = depthFilter/1000.0f;
+  
   //apply an exponential weighted moving average filter to remove sensor jitter
-  prevPressure = (3*prevPressure)/4 + (1*P/10.0f)/4; 
+  prevPressure = (prevPressure*filterN) + ((P/10.0f)*(1.0f-filterN)); 
   //update data to send over ethernet
   outGroup.depth_microBar = (int32_t) (prevPressure * 1000.0f);
+  outGroup.depth_microBarRaw = (int32_t) (P*100.0f);
   return prevPressure*conversion;
 }
 
