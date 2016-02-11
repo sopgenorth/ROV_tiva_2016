@@ -25,8 +25,25 @@ Usage guide:
  updateSync() - should be called very often in loop(). Checks for updates in the network buffer,
  and if UPDATE_RATE ms have passed since last update will send an update back to the computer
  */
-
+#include <stdbool.h>
+#include <stdint.h>
+#include "inc/hw_nvic.h"
+#include "inc/hw_sysctl.h"
+#include "inc/hw_types.h"
+#include "driverlib/flash.h"
+#include "driverlib/rom.h"
+#include "driverlib/sysctl.h"
+#include "driverlib/systick.h"
+#include "arch/lwiplib.h"
 #include "rovCOM.h"
+
+#define ROM_APITABLE    ((uint32_t *)0x01000010)
+#define ROM_EMACTABLE   ((uint32_t *)(ROM_APITABLE[42]))
+#define ROM_UpdateEMAC  ((void (*)(uint32_t ui32Clock))ROM_EMACTABLE[71])
+
+#define FIRMWARE_UPDATE_UDP_PORT 9
+#define FIRMWARE_PACKET_LENGTH 30
+
 
 #define UDP_TX_PACKET_MAX_SIZE 256
 
@@ -41,13 +58,14 @@ byte packetBuffer[UDP_TX_PACKET_MAX_SIZE]; //buffer to hold incoming packet
 
 // An EthernetUDP instance to let us send and receive packets over UDP
 EthernetUDP Udp;
+EthernetUDP Udp_firmwareUpdate;
 
 //function prototypes
 void updateSegment(byte index, byte * data);
 void proccessPacket(byte buffer[], int size);
 void handleDataOut();
 void updateOutStream();
-
+void SoftwareUpdateBegin(uint32_t ui32SysClock);
 
 void setupSync(byte mac[], IPAddress ip, int updateRate_ms, int localPort){
   //set global variables
@@ -57,6 +75,9 @@ void setupSync(byte mac[], IPAddress ip, int updateRate_ms, int localPort){
   // start the Ethernet and UDP:
   Ethernet.begin(mac,ip);
   Udp.begin(LOCAL_PORT);
+  
+  //initialize UDP port for listening for firmware updates
+  Udp_firmwareUpdate.begin(FIRMWARE_UPDATE_UDP_PORT);
   
   Ethernet.enableActivityLed();
   Ethernet.enableLinkLed();
@@ -87,6 +108,11 @@ int updateSync(){
   if(time + UPDATE_RATE < millis()){
     time = millis();
     handleDataOut();
+  }
+  
+  //check if a firmware update packet has been sent
+  if(Udp_firmwareUpdate.parsePacket() == FIRMWARE_PACKET_LENGTH){ 
+    SoftwareUpdateBegin(SysCtlClockGet());
   }
 
   return dataReceived;
@@ -159,4 +185,56 @@ void updateSegment(byte index, byte * data){
     return;
   }
   memcpy((int*)(&inGroup) + index, data, sizeof(int32_t));
+}
+
+
+//copied from TI's swupdate.c file provided in examples and TivaWare
+//*****************************************************************************
+//
+//! Passes control to the bootloader and initiates a remote software update
+//! over Ethernet.
+//!
+//! This function passes control to the bootloader and initiates an update of
+//! the main application firmware image via BOOTP across Ethernet.  This
+//! function may only be used on parts supporting Ethernet and in cases where
+//! the Ethernet boot loader is in use alongside the main application image.
+//! It must not be called in interrupt context.
+//!
+//! Applications wishing to make use of this function must be built to
+//! operate with the bootloader.  If this function is called on a system
+//! which does not include the bootloader, the results are unpredictable.
+//!
+//! \note It is not safe to call this function from within the callback
+//! provided on the initial call to SoftwareUpdateInit().  The application
+//! must use the callback to signal a pending update (assuming the update is to
+//! be permitted) to some other code running in a non-interrupt context.
+//!
+//! \return Never returns.
+//
+//*****************************************************************************
+void SoftwareUpdateBegin(uint32_t ui32SysClock)
+{
+    //
+    // Disable all processor interrupts.  Instead of disabling them
+    // one at a time (and possibly missing an interrupt if new sources
+    // are added), a direct write to NVIC is done to disable all
+    // peripheral interrupts.
+    //
+    HWREG(NVIC_DIS0) = 0xffffffff;
+    HWREG(NVIC_DIS1) = 0xffffffff;
+    HWREG(NVIC_DIS2) = 0xffffffff;
+    HWREG(NVIC_DIS3) = 0xffffffff;
+    HWREG(NVIC_DIS4) = 0xffffffff;
+
+    //
+    // Also disable the SysTick interrupt.
+    //
+    SysTickIntDisable();
+    SysTickDisable();
+
+    //
+    // Return control to the boot loader.  This is a call to the SVC
+    // handler in the flashed-based boot loader, or to the ROM if configured.
+    //
+    ROM_UpdateEMAC(ui32SysClock);
 }

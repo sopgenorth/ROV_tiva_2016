@@ -1,6 +1,6 @@
-#include "rovMotorDriver.h"
+#include "MotorDriver.h"
 #include "rovCOM.h"
-#include "rovPID.h"
+#include "PID.h"
 
 #define m_DIR PK_5
 #define m_PWM PF_0
@@ -162,7 +162,7 @@ void updateAllMotors(boolean overRideTimer){
     //update motor values using received data
     int * motorValues = (int*)&inGroup;
     for(int i = 0; i < TOTAL_THRUSTERS; i+=2){
-      setMotorSpeed(thrusterNumbers[i], *motorValues);
+      setMotorSpeed(thrusterNumbers[i], 500);//*motorValues);
       motorValues++; 
     }
   }
@@ -174,7 +174,7 @@ void updateAllMotors(boolean overRideTimer){
   if(updatedPID){
      //update 4 Z thrusters
      for(int i = 1; i < TOTAL_THRUSTERS; i+=2){
-      setMotorSpeed(thrusterNumbers[i], zThrusters);
+      setMotorSpeed(thrusterNumbers[i], 1000);//zThrusters);
     }
     outGroup.PID_output = zThrusters;
   }

@@ -1,4 +1,4 @@
-#include "rovPID.h"
+#include "PID.h"
 #include "PID_v1.h"
 #include "MS5837.h"
 #include "rovCOM.h"
@@ -47,7 +47,12 @@ boolean rovPIDrun(){
   depthSensor.read(); //takes about 4.7ms to get a new reading, non-blocking
   
   //update sensor data
-    depthInput = depthSensor.pressure();
+  depthInput = depthSensor.pressure();
+  
+  //don't compute PID unless told to
+  if(inGroup.PIDenable == 0){
+    return false; 
+  }
   
   if(inGroup.PID_setPoint != 0 && inGroup.PID_setPoint != prevPID_setPoint){
     prevPID_setPoint = inGroup.PID_setPoint;
