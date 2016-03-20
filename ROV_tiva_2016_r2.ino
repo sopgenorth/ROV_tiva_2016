@@ -21,7 +21,7 @@ byte mac[] = {0x00, 0x1A, 0xB6, 0x02, 0xF4, 0xCC};
   setupSync(mac, IPAddress(192, 168, 2, 217), 20, 4545);
   
   //initialize motor driver lib and set UART rate
-  setupMotorDriver(500000);
+  setupMotorDriver(115200);
 }
 
 /*
@@ -33,11 +33,15 @@ void loop(){
   //reads a packet if available. 
   boolean newSyncData = updateSync();
   
+  unsigned long currentMillis = millis();
+  static unsigned long previousMillis;
+  
+
   //updates motor values if new sync data is available or if more than 50ms have passed
   updateAllMotors(newSyncData);
 
   //run the temperature poll
-  rovTemperatureRun();
+  //rovTemperatureRun();
   
   //sample ADC values
   rovAnalogSample();

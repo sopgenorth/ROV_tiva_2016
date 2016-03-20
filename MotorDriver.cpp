@@ -5,7 +5,8 @@
 #define m_DIR PK_5
 #define m_PWM PF_0
 
-const int thrusterNumbers[8] = {fl_xy, fl_z, fr_xy, fr_z, br_xy, br_z, bl_xy, bl_z}; 
+const int thrusterNumbers[8] = {
+  fl_xy, fl_z, fr_xy, fr_z, br_xy, br_z, bl_xy, bl_z}; 
 
 const unsigned char CRC7_POLY = 0x91;
 unsigned char CRCTable[256];
@@ -14,6 +15,7 @@ unsigned char CRCTable[256];
 unsigned char getCRC(unsigned char message[], unsigned char length);
 unsigned char getCRCForByte(unsigned char val);
 void buildCRCTable();
+void sendSafeStart();
 
 /*
  * Begin serial ports, built CRC table and send safe start command 
@@ -35,17 +37,29 @@ void setupMotorDriver(int uartRate)
 
   //Build CRC table used for data integretity verification
   buildCRCTable();
+  
+  sendSafeStart();
 
+  //for added motor driver
+  pinMode(m_DIR, OUTPUT);
+  pinMode(m_PWM, OUTPUT);
+
+  //bring all motors to a stop
+  stopAllMotors(); 
+  rovPIDinit();
+}
+
+void sendSafeStart(){
   //Motor controller signal for auto baud identification
   unsigned char message[2] = {
-    0xAA, 0x00      };
+    0xAA, 0x00          };
   message[1] = getCRC(message, 1);
   Serial.write(message, sizeof(message));
   Serial1.write(message, sizeof(message));
   Serial2.write(message, sizeof(message));
   Serial3.write(message, sizeof(message));
   Serial4.write(message, sizeof(message));
- // Serial5.write(message, sizeof(message));
+  // Serial5.write(message, sizeof(message));
   Serial6.write(message, sizeof(message));
   Serial7.write(message, sizeof(message));
 
@@ -60,14 +74,6 @@ void setupMotorDriver(int uartRate)
   //Serial5.write(message, sizeof(message));
   Serial6.write(message, sizeof(message));
   Serial7.write(message, sizeof(message));
-
-  //for added motor driver
-  pinMode(m_DIR, OUTPUT);
-  pinMode(m_PWM, OUTPUT);
-
-  //bring all motors to a stop
-  stopAllMotors(); 
-  rovPIDinit();
 }
 
 /*
@@ -154,31 +160,44 @@ void stopAllMotors()
  */
 void updateAllMotors(boolean overRideTimer){
   unsigned long currentMillis = millis();
-  static unsigned long previousMillis;
+  static unsigned long previousMillis = 0;
+  static unsigned long safeStartTime = 0;
   
+  if(currentMillis - safeStartTime > 200){
+    sendSafeStart(); 
+  }
   if(overRideTimer || (currentMillis - previousMillis > 50)) {
     previousMillis = currentMillis;
-    
-    //update motor values using received data
+
+    //update XY motor values using received data
     int * motorValues = (int*)&inGroup;
     for(int i = 0; i < TOTAL_THRUSTERS; i+=2){
-      setMotorSpeed(thrusterNumbers[i], 500);//*motorValues);
-      motorValues++; 
+      setMotorSpeed(thrusterNumbers[i], *motorValues);
+      motorValues+=2; 
     }
   }
-  
+
   //integrate z thrust data and update depthSetpoint
-  
+
   //call the PID run function and update z thrustrs if necessary
   boolean updatedPID = rovPIDrun();
-  if(updatedPID){
-     //update 4 Z thrusters
-     for(int i = 1; i < TOTAL_THRUSTERS; i+=2){
-      setMotorSpeed(thrusterNumbers[i], 1000);//zThrusters);
+  if(updatedPID && (inGroup.PIDenable==1)){
+    //update 4 Z thrusters from PID output
+    for(int i = 1; i < TOTAL_THRUSTERS; i+=2){
+      setMotorSpeed(thrusterNumbers[i], zThrusters);
     }
     outGroup.PID_output = zThrusters;
+  } 
+  else {
+    //update 4 Z thrusters from user data
+    int * motorValues = (int*)&inGroup;
+    motorValues++;
+    for(int i = 1; i < TOTAL_THRUSTERS; i+=2){
+      setMotorSpeed(thrusterNumbers[i], *motorValues);
+      motorValues+=2; 
+    }
   }
-  
+
 }
 
 unsigned char getCRCForByte(unsigned char val)
@@ -214,4 +233,6 @@ unsigned char getCRC(unsigned char message[], unsigned char length)
     crc = CRCTable[crc ^ message[i]];
   return crc;
 }
+
+
 

@@ -7,8 +7,8 @@
 #define MS5837_RESET              0x1E
 #define MS5837_ADC_READ           0x00
 #define MS5837_PROM_READ          0xA0
-#define MS5837_CONVERT_D1         0x46
-#define MS5837_CONVERT_D2         0x56
+#define MS5837_CONVERT_D1         0x44
+#define MS5837_CONVERT_D2         0x54
 
 #if (MS5837_CONVERT_D1 == 0x40)
 # define MS5837_CONVERT_DELAY_D1 600
@@ -45,7 +45,7 @@
  * change relatively slowly. This sets how many pressure reads
  * are between temperature readings. 
  */
-#define TEMP_READ_RATE 50  
+#define TEMP_READ_RATE 25  
 
 #define SCL_PIN PK_3
 #define SDA_PIN PK_2
@@ -149,7 +149,7 @@ void MS5837::setFluidDensity(float density) {
 }
 
 void MS5837::read() {    
-  if(depthSampleCounter < TEMP_READ_RATE){ //read the pressure
+ // if(depthSampleCounter < TEMP_READ_RATE){ //read the pressure
     depthSampleCounter++;
 
     // Request D1 conversion
@@ -169,8 +169,8 @@ void MS5837::read() {
     D1 = (D1 << 8) | rtc.read(false);
     D1 = (D1 << 8) | rtc.read(true);
     rtc.stop();
-  }
-  else { //read the temperature every TEMP_READ_RATE depth readings
+ // }
+ // else { //read the temperature every TEMP_READ_RATE depth readings
     depthSampleCounter = 0;
 
     // Request D2 conversion
@@ -190,7 +190,7 @@ void MS5837::read() {
     D2 = (D2 << 8) | rtc.read(true);
     rtc.stop();
 
-  }
+ // }
   calculate();
 }
 
@@ -256,20 +256,19 @@ void MS5837::calculate() {
   P = (((D1*SENS2)/2097152l-OFF2)/32768l);
 }
 
-float MS5837::pressure(float conversion) {
-  //depthFilter = inGroup.depthFilter;
-  //float filterN = depthFilter/1000.0f;
+float MS5837::pressure(float conversion) {  
+  depthFilter = inGroup.depthFilter;
+  
+  static
+  float filterN = depthFilter/1000.0f;
 
   //apply an exponential weighted moving average filter to remove sensor jitter
-  //prevPressure = (prevPressure*filterN) + ((P/10.0f)*(1.0f-filterN)); 
+  prevPressure = (prevPressure*filterN) + ((P/10.0f)*(1.0f-filterN)); 
   //update data to send over ethernet
 
-  //apply a butterworth filter to the data
-  prevPressure = filter.step(P/10.0f);
-
   //update PC with filtered and raw depths
-  outGroup.depth_microBar = (int32_t) (prevPressure * 1000.0f);
-  outGroup.depth_microBarRaw = (int32_t) (P*100.0f);
+  outGroup.depth_microBar = (int32_t) ((prevPressure * 1000.0f));
+  outGroup.depth_microBarRaw = (int32_t) ((P*100.0f));
   return prevPressure*conversion;
 }
 

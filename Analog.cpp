@@ -1,14 +1,14 @@
 #include "Analog.h"
 #include "rovCOM.h"
 
-#define ANALOG_SAMPLES_PER_SCAN 10
+#define ANALOG_SAMPLES_PER_SCAN 5
 
 #define rov48V_pin PE_0
 #define rov48I_pin PD_7
 #define rov12V_pin PD_6 
 
-//simple moving 20 value average filter
-#define FILTER_VALUE_COUNT 20
+//simple moving average filter
+#define FILTER_VALUE_COUNT 25
 class  FilterMA
 {
 public:
@@ -33,7 +33,7 @@ public:
   }
 };
 
-FilterMA rov48I_filter;
+FilterMA rov48V_filter, rov48I_filter, rov12V_filter;
 
 void rovAnalogInit(){
   rovAnalogSample();
@@ -48,8 +48,8 @@ void rovAnalogSample(){
       rov12V += analogRead(rov12V_pin);
   }
   
-  outGroup.rov48V = rov48V / ANALOG_SAMPLES_PER_SCAN;
-  //current sensor is particularly noisy, so it gets more filtering
-  outGroup.rov48I = rov48I_filter.step(rov48I/ANALOG_SAMPLES_PER_SCAN); 
-  outGroup.rov12V = rov12V / ANALOG_SAMPLES_PER_SCAN;
+  //apply a moving average filter to the data
+  outGroup.rov48V = rov48V_filter.step(rov48V / ANALOG_SAMPLES_PER_SCAN);
+  outGroup.rov48I = rov48I_filter.step(rov48I / ANALOG_SAMPLES_PER_SCAN); 
+  outGroup.rov12V = rov12V_filter.step(rov12V / ANALOG_SAMPLES_PER_SCAN);
 }

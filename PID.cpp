@@ -3,7 +3,7 @@
 #include "MS5837.h"
 #include "rovCOM.h"
 
-#define PID_LOOP_RATE_MS 7
+#define PID_LOOP_RATE_MS 8
 #define PID_GAIN_SWITCH_POINT (1500)
 int32_t PIDgainSwitchPoint_uBar = PID_GAIN_SWITCH_POINT;
 
@@ -49,6 +49,9 @@ boolean rovPIDrun(){
   //update sensor data
   depthInput = depthSensor.pressure();
   
+  //update PID derivative filter
+  depthPID.SetdFilterN(inGroup.PID_dFilter / 1000.0);
+  
   //don't compute PID unless told to
   if(inGroup.PIDenable == 0){
     return false; 
@@ -59,20 +62,22 @@ boolean rovPIDrun(){
     depthSetpoint = (double) inGroup.PID_setPoint;
   }
     
-  if((inGroup.PIDgainSwitchPoint_uBar != 0 && inGroup.PIDgainSwitchPoint_uBar != PIDgainSwitchPoint_uBar)){
+  if(inGroup.PIDgainSwitchPoint_uBar != PIDgainSwitchPoint_uBar){
     PIDgainSwitchPoint_uBar = inGroup.PIDgainSwitchPoint_uBar;
   }
   
   if(abs(depthInput - depthSetpoint) > (PIDgainSwitchPoint_uBar/1000.0f)){ //far away from setpoint, use the high gains
-    if(!highGains || (inGroup.PID_Kp != 0 && inGroup.PID_Kp != Kp)){
+    if(!highGains || (inGroup.PID_Kp != Kp)){
+      highGains = true;
       Kp = inGroup.PID_Kp;
       depthPID.SetTunings(Kp/1000.0f, Ki/1000.0f, Kd/1000.0f);
     }
-    if(!highGains || (inGroup.PID_Ki != 0 && inGroup.PID_Ki != Ki)){
+    if(!highGains || (inGroup.PID_Ki != Ki)){
+      highGains = true;
       Ki = inGroup.PID_Ki;
       depthPID.SetTunings(Kp/1000.0f, Ki/1000.0f, Kd/1000.0f);
     }
-    if(!highGains || (inGroup.PID_Kd != 0 && inGroup.PID_Kd != Kd)){
+    if(!highGains || (inGroup.PID_Kd != Kd)){
       Kd = inGroup.PID_Kd;
       depthPID.SetTunings(Kp/1000.0f, Ki/1000.0f, Kd/1000.0f);
     }
@@ -80,17 +85,19 @@ boolean rovPIDrun(){
   }
   else //we're pretty close to the setpoint, use lower gains
   {
-    if(highGains || (inGroup.PID_Kp_low != 0 && inGroup.PID_Kp_low != Kp_low)){
+    if(highGains || (inGroup.PID_Kp_low != Kp_low)){
+      highGains = false;
       Kp_low = inGroup.PID_Kp_low;
       depthPID.SetTunings(Kp_low/1000.0f, Ki_low/1000.0f, Kd_low/1000.0f);
     }
-    if(highGains || (inGroup.PID_Ki_low != 0 && inGroup.PID_Ki_low != Ki_low)){
+    if(highGains || (inGroup.PID_Ki_low != Ki_low)){
+      highGains = false;
       Ki_low = inGroup.PID_Ki_low;
       depthPID.SetTunings(Kp_low/1000.0f, Ki_low/1000.0f, Kd_low/1000.0f);
     }
-    if(highGains || (inGroup.PID_Kd_low != 0 && inGroup.PID_Kd_low != Kd_low)){
+    if(highGains || (inGroup.PID_Kd_low != Kd_low)){
       Kd_low = inGroup.PID_Kd_low;
-      depthPID.SetTunings(Kp/1000.0f, Ki/1000.0f, Kd/1000.0f);
+      depthPID.SetTunings(Kp_low/1000.0f, Ki_low/1000.0f, Kd_low/1000.0f);
     }
     highGains = false;
   }

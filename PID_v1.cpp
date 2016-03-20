@@ -7,6 +7,7 @@
 
 #include "Energia.h"
 #include "PID_v1.h"
+#include "rovCOM.h"
 
 /*Constructor (...)*********************************************************
  *    The parameters specified here are those for for which we can't set up 
@@ -52,7 +53,7 @@ bool PID::Compute(bool forceCompute)
       ITerm+= (ki * error);
       if(ITerm > outMax) ITerm= outMax;
       else if(ITerm < outMin) ITerm= outMin;
-      double dInput = (input - lastInput);
+      dInput = (dInput*dFilterN) + (1.0f-dFilterN)*(input - lastInput);
  
       /*Compute PID Output*/
       double output = kp * error + ITerm- kd * dInput;
@@ -177,11 +178,16 @@ void PID::SetControllerDirection(int Direction)
    controllerDirection = Direction;
 }
 
+void PID::SetdFilterN(double newDFilterN){ 
+   dFilterN = newDFilterN;
+}
+
 /* Status Funcions*************************************************************
  * Just because you set the Kp=-1 doesn't mean it actually happened.  these
  * functions query the internal state of the PID.  they're here for display 
  * purposes.  this are the functions the PID Front-end uses for example
  ******************************************************************************/
+double PID::GetdFilterN(){ return dFilterN;}
 double PID::GetKp(){ return  dispKp; }
 double PID::GetKi(){ return  dispKi;}
 double PID::GetKd(){ return  dispKd;}

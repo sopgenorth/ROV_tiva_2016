@@ -12,6 +12,7 @@ struct inNames_t{
   int32_t PID_Kp_low, PID_Ki_low, PID_Kd_low;
   int32_t PIDgainSwitchPoint_uBar;
   int32_t depthFilter;
+  int32_t PID_dFilter;
   int32_t PIDenable;
 };
 

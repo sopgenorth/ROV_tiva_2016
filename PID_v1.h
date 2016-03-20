@@ -40,9 +40,10 @@ public:
   void SetSampleTime(int);              // * sets the frequency, in Milliseconds, with which 
                                         //   the PID calculation is performed.  default is 100
 
-
+  void SetdFilterN(double);             // * set the value for exponential moving average filter on the D term
 
   //Display functions ****************************************************************
+  double GetdFilterN();  
   double GetKp();						  // These functions query the pid for interal values.
   double GetKi();						  //  they were created mainly for the pid front-end,
   double GetKd();						  // where it's important to know what is actually 
@@ -68,7 +69,7 @@ private:
   //   what these values are.  with pointers we'll just know.
 
   unsigned long lastTime;
-  double ITerm, lastInput;
+  double ITerm, lastInput, dInput, dFilterN;
 
   unsigned long SampleTime;
   double outMin, outMax;
